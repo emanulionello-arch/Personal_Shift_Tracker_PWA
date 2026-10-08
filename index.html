@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gestione Turni</title>
+    <!-- Tailwind CSS per una grafica moderna e pulita -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f3f8fc',
+                            100: '#e5f0f9',
+                            500: '#2b6cb0',
+                            600: '#2b6cb0',
+                            700: '#1a4f7a',
+                            900: '#0f2d4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Icone bellissime pronte all'uso -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Configurazione per far finta che sia un'applicazione nativa su iOS -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a4f7a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Gestione Turni">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        details summary::-webkit-details-marker {
+            display: none;
+        }
+        details summary {
+            list-style: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col pb-24">
+
+    <!-- Header -->
+    <header class="bg-brand-900 text-white px-4 pt-4 pb-6 rounded-b-[2rem] shadow-lg sticky top-0 z-40">
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <span class="text-xs text-brand-100 font-semibold uppercase tracking-wider">Gestione Turni</span>
+                <h1 id="header-title" class="text-xl font-bold">I Miei Turni</h1>
+            </div>
+            <div class="bg-white/10 p-2 rounded-full">
+                <i data-lucide="user" class="w-5 h-5 text-white"></i>
+            </div>
+        </div>
+        
+        <!-- Widget dello Stipendio Stimato -->
+        <div class="bg-white text-slate-800 rounded-2xl p-4 shadow-md flex flex-col gap-3">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p id="salary-title" class="text-xs text-slate-500 font-medium uppercase">Stipendio Stimato</p>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <div class="flex flex-col">
+                            <span id="salary-estimation-net" class="text-2xl font-bold text-brand-700">€ 0,00 <span class="text-xs font-normal text-slate-400">netto</span></span>
+                            <span id="salary-estimation-gross" class="text-xs font-medium text-slate-400">€ 0,00 lordo</span>
+                        </div>
+                    </div>
+                    <span id="salary-details" class="text-xs text-slate-400 font-normal mt-1 block">(0 turni fatti)</span>
+                </div>
+                <div class="flex flex-col gap-1.5 items-end">
+                    <button onclick="toggleSalaryDetailsModal()" class="bg-brand-100 hover:bg-brand-200 text-brand-700 p-2 rounded-xl transition">
+                        <i data-lucide="info" class="w-4 h-4"></i>
+                    </button>
+                    <button id="btn-copia" onclick="copiaTurniMese()" class="bg-brand-600 hover:bg-brand-700 text-white px-2.5 py-1 rounded-lg transition text-[10px] font-bold">
+                        Copia
+                    </button>
+                    <button id="btn-importa" onclick="openImportModal()" class="bg-brand-500 hover:bg-brand-600 text-white px-2.5 py-1 rounded-lg transition text-[10px] font-bold">
+                        Importa
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Progress Bar Section (Visible on Dashboard when there are shifts) -->
+            <div id="salary-progress-container" class="hidden border-t border-slate-100 pt-3">
+                <div class="flex justify-between text-[11px] font-semibold text-slate-500 mb-1.5">
+                    <span id="salary-progress-text">0 su 0 turni fatti</span>
+                    <span id="salary-progress-percent" class="text-brand-600 font-bold">0% dello stipendio</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div id="salary-progress-bar" class="bg-brand-600 h-2 rounded-full w-0 transition-all duration-1000 ease-out shadow-sm shadow-brand-500/20"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenuto Principale -->
+    <main class="flex-1 px-4 py-6 max-w-md mx-auto w-full">
+        
+        <!-- Filtri -->
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-md font-semibold text-slate-600 flex items-center gap-2">
+                <i data-lucide="calendar-range" class="w-4 h-4 text-brand-600"></i>
+                <span id="section-title">Prossimi Turni</span>
+            </h2>
+            <select id="month-filter" onchange="renderTurns()" class="text-xs bg-white border border-slate-200 rounded-lg py-1.5 px-2.5 font-medium text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <!-- Popolato da JS -->
+            </select>
+        </div>
+
+        <!-- Schermata Vuota -->
+        <div id="empty-state" class="hidden flex flex-col items-center justify-center py-12 px-4 text-center">
+            <div class="bg-slate-100 p-4 rounded-full text-slate-400 mb-3">
+                <i data-lucide="calendar" class="w-8 h-8"></i>
+            </div>
+            <p class="font-medium text-slate-600">Nessun turno inserito</p>
+            <p class="text-xs text-slate-400 mt-1">Premi il pulsante "+" in basso per aggiungere un turno.</p>
+        </div>
+
+        <!-- Lista dei Turni -->
+        <div id="turns-container" class="space-y-3"></div>
+
+    </main>
+
+    <!-- Pulsante Fluttuante "+" -->
+    <div class="fixed bottom-20 right-6 z-50">
+        <button onclick="openAddTurnModal()" class="bg-brand-600 hover:bg-brand-700 active:scale-95 text-white p-4 rounded-full shadow-2xl flex items-center justify-center transition transform" aria-label="Aggiungi Turno">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Barra di Navigazione Inferiore -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 py-3 px-4 flex justify-around items-center text-slate-400 z-30 shadow-inner">
+        <button id="btn-dashboard" onclick="switchTab('dashboard')" class="flex flex-col items-center text-brand-600 transition">
+            <i data-lucide="home" class="w-5 h-5"></i>
+            <span class="text-[10px] mt-0.5 font-medium">Dashboard</span>
+        </button>
+        <button id="btn-storico" onclick="switchTab('storico')" class="flex flex-col items-center hover:text-slate-600 transition">
+            <i data-lucide="history" class="w-5 h-5"></i>
+            <span class="text-[10px] mt-0.5 font-medium">Storico Turni</span>
+        </button>
+        <button onclick="toggleSalaryDetailsModal()" class="flex flex-col items-center hover:text-slate-600 transition">
+            <i data-lucide="wallet" class="w-5 h-5"></i>
+            <span class="text-[10px] mt-0.5 font-medium">Contratto</span>
+        </button>
+        <button onclick="exportToICS()" class="flex flex-col items-center text-emerald-600 font-semibold hover:text-emerald-700 transition" title="Sincronizza Calendario">
+            <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+            <span class="text-[10px] mt-0.5 font-medium">Sincronizza</span>
+        </button>
+    </div>
+
+    <!-- MODALE: Aggiungi / Modifica Turno -->
+    <div id="turn-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+            <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h3 id="modal-title" class="text-base font-bold text-slate-800">Nuovo Turno</h3>
+                <button onclick="closeTurnModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="turn-form" onsubmit="saveTurn(event)" class="p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
+                <input type="hidden" id="turn-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Giorno del Turno</label>
+                    <input type="date" id="turn-date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Ora Inizio</label>
+                        <input type="time" id="turn-start" required onchange="autoDetectShift()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Ora Fine</label>
+                        <input type="time" id="turn-end" required onchange="autoDetectShift()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Tipologia Rilevata</label>
+                    <div id="shift-badge-detected" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600">
+                        Inserisci gli orari...
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Turno con (Colleghe)</label>
+                    <input type="text" id="turn-colleagues" placeholder="Es. Chiara, Marta" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Note</label>
+                    <textarea id="turn-notes" rows="2" placeholder="Note extra..." class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+                </div>
+
+                <div class="pt-2 flex gap-3">
+                    <button type="button" onclick="closeTurnModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-3 rounded-xl text-sm transition">
+                        Annulla
+                    </button>
+                    <button type="submit" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl text-sm transition shadow-md">
+                        Salva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALE: Dettagli Contratto -->
+    <div id="salary-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+            <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="badge-dollar-sign" class="text-emerald-500 w-5 h-5"></i>
+                    Tariffe Contratto D1
+                </h3>
+                <button onclick="toggleSalaryDetailsModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
+                <!-- Widget Stima Conguaglio -->
+                <div class="bg-sky-50 text-sky-800 rounded-2xl p-4 shadow-sm border border-sky-100 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-sky-100 text-sky-600 p-2 rounded-xl">
+                            <i data-lucide="piggy-bank" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold uppercase">Stima Conguaglio Fiscale</p>
+                            <p id="tax-refund-amount" class="text-lg font-bold">€ 0,00 <span class="text-sm font-normal text-sky-600/80">stimati da recuperare</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-100 p-3 rounded-xl text-xs text-blue-800 leading-relaxed">
+                    <strong>Contratto Livello D1:</strong> I calcoli si basano sui parametri del CCNL riproporzionati sulle tue 8 ore settimanali. Puoi modificare questi valori se cambiano nel tempo!
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Paga Oraria Base (€)</label>
+                        <input type="number" id="base-hourly-rate" step="0.01" value="9.92" onchange="saveContractSettings()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Maggiorazione Festiva (%)</label>
+                        <input type="number" id="festive-supplement" value="30" onchange="saveContractSettings()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Maggiorazione Notturna (%)</label>
+                        <input type="number" id="night-supplement" value="25" onchange="saveContractSettings()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm">
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100 flex justify-end">
+                    <button onclick="toggleSalaryDetailsModal()" class="bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition">
+                        Chiudi e Ricalcola
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE: Importa Turni -->
+    <div id="import-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+            <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="file-input" class="text-brand-600 w-5 h-5"></i>
+                    Importa Turni
+                </h3>
+                <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
+                <div class="bg-brand-50 border border-brand-100 p-3 rounded-xl text-xs text-brand-800 leading-relaxed">
+                    Incolla qui il testo dei turni precedentemente copiato. Il formato deve essere simile a:<br>
+                    <code class="block bg-white/60 p-1 mt-1 rounded font-mono">1) lun 10/08: 8 - 14 (morning)</code>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Anno di Riferimento</label>
+                    <input type="number" id="import-year" min="2020" max="2100" oninput="updateImportPreview()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Dati da Importare</label>
+                    <textarea id="import-text" rows="6" oninput="updateImportPreview()" placeholder="Es. 1) lun 10/08: 8 - 14 (morning)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"></textarea>
+                </div>
+
+                <div id="import-preview">
+                    <!-- Anteprima generata dinamicamente via JS -->
+                </div>
+
+                <div class="pt-2 flex gap-3">
+                    <button type="button" onclick="closeImportModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold py-3 rounded-xl text-sm transition">
+                        Annulla
+                    </button>
+                    <button id="btn-conferma-import" onclick="eseguiImportazione()" disabled class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl text-sm transition shadow-md opacity-50 cursor-not-allowed">
+                        Importa
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Banner Notifica Locale Interfaccia -->
+    <div id="notification-banner" class="fixed bottom-20 left-4 right-4 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between z-40 transform translate-y-32 transition duration-300">
+        <div class="flex items-center gap-2">
+            <i data-lucide="check-circle" class="text-emerald-400 w-4 h-4"></i>
+            <span id="notification-text">Turno salvato sul telefono!</span>
+        </div>
+        <button onclick="dismissBanner()" class="text-slate-400 hover:text-white p-1">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+    </div>
+
+    <script>
+        let db;
+        const request = indexedDB.open("TurniDB", 1);
+        
+        request.onupgradeneeded = function(e) {
+            db = e.target.result;
+            if (!db.objectStoreNames.contains("turns")) {
+                db.createObjectStore("turns", { keyPath: "id" });
+            }
+        };
+
+        request.onsuccess = function(e) {
+            db = e.target.result;
+            loadContractSettings();
+            populateMonthFilter(); // Popola i mesi iniziali
+            renderTurns();
+        };
+
+        let contractSettings = { baseHourly: 9.92, festivePercent: 30, nightPercent: 25 };
+        let activeTab = 'dashboard';
+        let openMonths = {};
+
+        function toggleMonth(monthKey, isOpen) {
+            openMonths[monthKey] = isOpen;
+        }
+
+        function populateMonthFilter() {
+            getTurns(function(allTurns) {
+                const filterSelect = document.getElementById('month-filter');
+                const currentValue = filterSelect.value || 'all';
+                
+                // Mappa per mesi unici
+                const monthsMap = new Map(); // "2023-07" -> "Luglio 2023"
+                
+                allTurns.forEach(t => {
+                    const d = new Date(t.date);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    if (!monthsMap.has(key)) {
+                        const label = d.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                        monthsMap.set(key, label.charAt(0).toUpperCase() + label.slice(1));
+                    }
+                });
+
+                // Ordina i mesi cronologicamente (chiave stringa YYYY-MM funziona bene)
+                const sortedKeys = Array.from(monthsMap.keys()).sort().reverse();
+
+                let html = '<option value="all">Tutti i turni</option>';
+                sortedKeys.forEach(key => {
+                    html += `<option value="${key}">${monthsMap.get(key)}</option>`;
+                });
+
+                filterSelect.innerHTML = html;
+                filterSelect.value = currentValue;
+            });
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            
+            const btnDashboard = document.getElementById('btn-dashboard');
+            const btnStorico = document.getElementById('btn-storico');
+            
+            if (activeTab === 'dashboard') {
+                btnDashboard.classList.add('text-brand-600');
+                btnDashboard.classList.remove('text-slate-400', 'hover:text-slate-600');
+                
+                btnStorico.classList.add('text-slate-400', 'hover:text-slate-600');
+                btnStorico.classList.remove('text-brand-600');
+                
+                document.getElementById('header-title').innerText = "I Miei Turni";
+                document.getElementById('section-title').innerText = "Prossimi Turni";
+            } else {
+                btnStorico.classList.add('text-brand-600');
+                btnStorico.classList.remove('text-slate-400', 'hover:text-slate-600');
+                
+                btnDashboard.classList.add('text-slate-400', 'hover:text-slate-600');
+                btnDashboard.classList.remove('text-brand-600');
+                
+                document.getElementById('header-title').innerText = "Storico Turni";
+                document.getElementById('section-title').innerText = "Turni Passati";
+            }
+            
+            renderTurns();
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        function autoDetectShift() {
+            const startTimeStr = document.getElementById('turn-start').value;
+            const badge = document.getElementById('shift-badge-detected');
+            if (!startTimeStr) {
+                badge.innerText = "Inserisci gli orari...";
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600";
+                return;
+            }
+            const hour = parseInt(startTimeStr.split(':')[0], 10);
+            if (hour >= 6 && hour < 13) {
+                badge.innerText = "Turno Mattina 🌅";
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100";
+            } else if (hour >= 13 && hour < 22) {
+                badge.innerText = "Turno Pomeriggio 🌇";
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100";
+            } else {
+                badge.innerText = "Turno Notturno/Altro 🌃";
+                badge.className = "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-white";
+            }
+        }
+
+        function loadContractSettings() {
+            const saved = localStorage.getItem('contractSettings');
+            if (saved) {
+                contractSettings = JSON.parse(saved);
+                document.getElementById('base-hourly-rate').value = contractSettings.baseHourly;
+                document.getElementById('festive-supplement').value = contractSettings.festivePercent;
+                document.getElementById('night-supplement').value = contractSettings.nightPercent;
+            }
+        }
+
+        function saveContractSettings() {
+            contractSettings.baseHourly = parseFloat(document.getElementById('base-hourly-rate').value) || 9.92;
+            contractSettings.festivePercent = parseFloat(document.getElementById('festive-supplement').value) || 0;
+            contractSettings.nightPercent = parseFloat(document.getElementById('night-supplement').value) || 0;
+            localStorage.setItem('contractSettings', JSON.stringify(contractSettings));
+            renderTurns();
+        }
+
+        function getLocalTodayStr() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function openAddTurnModal() {
+            document.getElementById('modal-title').innerText = "Nuovo Turno";
+            document.getElementById('turn-form').reset();
+            document.getElementById('turn-id').value = '';
+            document.getElementById('turn-date').value = getLocalTodayStr();
+            autoDetectShift();
+            document.getElementById('turn-modal').classList.remove('hidden');
+        }
+
+        function closeTurnModal() { document.getElementById('turn-modal').classList.add('hidden'); }
+        function toggleSalaryDetailsModal() { document.getElementById('salary-modal').classList.toggle('hidden'); }
+
+        function getTurns(callback) {
+            const transaction = db.transaction(["turns"], "readonly");
+            const store = transaction.objectStore("turns");
+            const request = store.getAll();
+            request.onsuccess = function() { callback(request.result); };
+        }
+
+        function saveTurn(event) {
+            event.preventDefault();
+            const id = document.getElementById('turn-id').value || 'id_' + Date.now();
+            const date = document.getElementById('turn-date').value;
+            const start = document.getElementById('turn-start').value;
+            const end = document.getElementById('turn-end').value;
+            const colleagues = document.getElementById('turn-colleagues').value;
+            const notes = document.getElementById('turn-notes').value;
+            
+            const turn = { id, date, start, end, colleagues, notes };
+
+            const transaction = db.transaction(["turns"], "readwrite");
+            const store = transaction.objectStore("turns");
+            const req = store.put(turn);
+
+            req.onsuccess = function() {
+                closeTurnModal();
+                populateMonthFilter(); // Aggiorna la lista dei mesi
+                renderTurns();
+                triggerBannerNotification();
+            };
+        }
+
+        function triggerBannerNotification() {
+            const banner = document.getElementById('notification-banner');
+            document.getElementById('notification-text').innerText = "Turno salvato! Ricordati di sincronizzare il calendario.";
+            banner.classList.remove('translate-y-32');
+            setTimeout(() => { dismissBanner(); }, 4000);
+        }
+
+        function dismissBanner() { document.getElementById('notification-banner').classList.add('translate-y-32'); }
+
+        function saveActualSalary(monthKey, value) {
+            localStorage.setItem(`actualSalary_${monthKey}`, value);
+        }
+        function getActualSalary(monthKey) {
+            return localStorage.getItem(`actualSalary_${monthKey}`) || '';
+        }
+
+        function deleteTurn(id) {
+            if (confirm("Vuoi eliminare questo turno?")) {
+                db.transaction(["turns"], "readwrite").objectStore("turns").delete(id).onsuccess = function() {
+                    populateMonthFilter(); // Aggiorna la lista dei mesi
+                    renderTurns();
+                };
+            }
+        }
+
+        function editTurn(id) {
+            db.transaction(["turns"], "readonly").objectStore("turns").get(id).onsuccess = function(e) {
+                const turn = e.target.result;
+                if (turn) {
+                    document.getElementById('modal-title').innerText = "Modifica Turno";
+                    document.getElementById('turn-id').value = turn.id;
+                    document.getElementById('turn-date').value = turn.date;
+                    document.getElementById('turn-start').value = turn.start;
+                    document.getElementById('turn-end').value = turn.end;
+                    document.getElementById('turn-colleagues').value = turn.colleagues || '';
+                    document.getElementById('turn-notes').value = turn.notes || '';
+                    autoDetectShift();
+                    document.getElementById('turn-modal').classList.remove('hidden');
+                }
+            };
+        }
+
+        function calculateEarnings(start, end, dateStr) {
+            const [hStart, mStart] = start.split(':').map(Number);
+            const [hEnd, mEnd] = end.split(':').map(Number);
+            let hours = (hEnd + mEnd/60) - (hStart + mStart/60);
+            if (hours < 0) hours += 24;
+            
+            let rate = contractSettings.baseHourly;
+            const isSunday = new Date(dateStr).getDay() === 0;
+            let multiplier = isSunday ? (1 + contractSettings.festivePercent / 100) : 1.0;
+            
+            let nightHours = 0;
+            if (hEnd > 22 || hEnd < 6) nightHours = Math.max(0, (hEnd < 6 ? hEnd + 2 : hEnd - 22));
+            
+            const regularHours = hours - nightHours;
+            const earned = (regularHours * rate * multiplier) + (nightHours * rate * multiplier * (1 + contractSettings.nightPercent/100));
+            
+            return { hours: hours.toFixed(1), earned: earned.toFixed(2), isFestive: isSunday };
+        }
+
+        function getTurnEndDateTime(turn) {
+            const [year, month, day] = turn.date.split('-').map(Number);
+            const [hEnd, mEnd] = turn.end.split(':').map(Number);
+            const [hStart, mStart] = turn.start.split(':').map(Number);
+            
+            // Crea la data di fine turno
+            let endDate = new Date(year, month - 1, day, hEnd, mEnd, 0, 0);
+            
+            // Se l'ora di fine è inferiore a quella di inizio, il turno scavalca la mezzanotte
+            const isOverMidnight = hEnd < hStart || (hEnd === hStart && mEnd < mStart);
+            if (isOverMidnight) {
+                endDate.setDate(endDate.getDate() + 1);
+            }
+            return endDate;
+        }
+
+        function updateTaxRefund() {
+            getTurns(function(allTurns) {
+                const currentYear = new Date().getFullYear();
+                let totalTaxRefund = 0;
+                
+                allTurns.forEach(turn => {
+                    const turnDate = new Date(turn.date);
+                    if (turnDate.getFullYear() === currentYear) {
+                        // calculateEarnings returns gross in .earned
+                        const { earned } = calculateEarnings(turn.start, turn.end, turn.date);
+                        totalTaxRefund += parseFloat(earned) * 0.015;
+                    }
+                });
+                
+                document.getElementById('tax-refund-amount').innerHTML = `€ ${totalTaxRefund.toLocaleString('it-IT', { minimumFractionDigits: 2 })} <span class="text-sm font-normal text-sky-600/80">stimati da recuperare a dicembre</span>`;
+            });
+        }
+
+        function renderTurns() {
+            updateTaxRefund();
+            getTurns(function(allTurns) {
+                const container = document.getElementById('turns-container');
+                const emptyState = document.getElementById('empty-state');
+                const filter = document.getElementById('month-filter').value;
+                
+                allTurns.sort((a, b) => new Date(a.date) - new Date(b.date));
+                const currentMonth = new Date().getMonth();
+                const currentYear = new Date().getFullYear();
+                const now = new Date();
+                
+                // Filtro per tab (Dashboard vs Storico)
+                let filteredTurns = allTurns;
+                if (activeTab === 'dashboard') {
+                    filteredTurns = filteredTurns.filter(t => getTurnEndDateTime(t) > now);
+                } else if (activeTab === 'storico') {
+                    filteredTurns = filteredTurns.filter(t => getTurnEndDateTime(t) <= now);
+                }
+                
+                // Filtro per mese (dinamico)
+                if (filter !== 'all') {
+                    filteredTurns = filteredTurns.filter(t => {
+                        return t.date.startsWith(filter); // filter è "YYYY-MM"
+                    });
+                }
+
+                // Calcola il totale dello stipendio e il numero di turni per il widget superiore
+                let widgetSalary = 0;
+                let widgetCount = 0;
+                let completedSalary = 0;
+                let completedCount = 0;
+                let monthLabel = '';
+
+                if (activeTab === 'dashboard') {
+                    const targetMonthKey = filter !== 'all' ? filter : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    allTurns.forEach(turn => {
+                        if (turn.date.startsWith(targetMonthKey)) {
+                            const { earned } = calculateEarnings(turn.start, turn.end, turn.date);
+                            widgetSalary += parseFloat(earned);
+                            widgetCount++;
+                            
+                            if (getTurnEndDateTime(turn) <= now) {
+                                completedSalary += parseFloat(earned);
+                                completedCount++;
+                            }
+                        }
+                    });
+                    
+                    const [year, month] = targetMonthKey.split('-');
+                    const tempDate = new Date(year, month - 1, 1);
+                    const label = tempDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                    monthLabel = label.charAt(0).toUpperCase() + label.slice(1);
+                } else if (activeTab === 'storico') {
+                    // Nello Storico il widget riflette sempre e solo i turni passati filtrati (o tutti i passati se 'all')
+                    filteredTurns.forEach(turn => {
+                        const { earned } = calculateEarnings(turn.start, turn.end, turn.date);
+                        widgetSalary += parseFloat(earned);
+                        widgetCount++;
+                    });
+                }
+
+                if (filteredTurns.length === 0) {
+                    container.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                    if (activeTab === 'dashboard') {
+                        emptyState.querySelector('p.font-medium').innerText = "Nessun turno in programma";
+                        emptyState.querySelector('p.text-xs').innerText = "Premi il pulsante \"+\" in basso per aggiungere un turno.";
+                    } else {
+                        emptyState.querySelector('p.font-medium').innerText = "Storico vuoto";
+                        emptyState.querySelector('p.text-xs').innerText = "Non ci sono turni passati archiviati.";
+                    }
+                    updateSalaryWidget(widgetSalary, widgetCount, completedSalary, completedCount, monthLabel);
+                    return;
+                }
+                
+                emptyState.classList.add('hidden');
+                let html = ''; let totalSalary = 0; let count = 0;
+                
+                if (activeTab === 'storico') {
+                    // Raggruppa i turni per mese
+                    const groups = {};
+                    filteredTurns.forEach(turn => {
+                        const d = new Date(turn.date);
+                        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        if (!groups[key]) {
+                            groups[key] = [];
+                        }
+                        groups[key].push(turn);
+                    });
+
+                    // Ordina i mesi in ordine decrescente (il mese più recente in alto)
+                    const sortedMonthKeys = Object.keys(groups).sort().reverse();
+
+                    html += '<div class="space-y-4">';
+                    sortedMonthKeys.forEach(monthKey => {
+                        const monthTurns = groups[monthKey];
+                        let monthTotal = 0;
+                        let monthHtml = '';
+
+                        monthTurns.forEach(turn => {
+                            const d = new Date(turn.date);
+                            const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).toUpperCase();
+                            const dayNum = d.getDate();
+                            const monthName = d.toLocaleDateString('it-IT', { month: 'short' }).toUpperCase();
+                            
+                            const { hours, earned, isFestive } = calculateEarnings(turn.start, turn.end, turn.date);
+                            monthTotal += parseFloat(earned);
+                            totalSalary += parseFloat(earned);
+                            count++;
+                            
+                            const isMorning = parseInt(turn.start.split(':')[0], 10) < 13;
+                            const shiftColorClass = isFestive ? 'border-l-4 border-l-rose-500 bg-rose-50/50' : (isMorning ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-indigo-500 bg-indigo-50/30');
+
+                            monthHtml += `
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 transition duration-200 ${shiftColorClass}">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-slate-100 rounded-xl p-2.5 text-center min-w-[52px]">
+                                            <span class="block text-[10px] text-slate-400 font-bold">${weekday}</span>
+                                            <span class="block text-lg font-extrabold text-slate-800 leading-none">${dayNum}</span>
+                                            <span class="block text-[9px] text-brand-600 font-bold mt-0.5">${monthName}</span>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-bold text-slate-800">${turn.start} - ${turn.end}</span>
+                                                <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isFestive ? 'bg-rose-100 text-rose-700' : (isMorning ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700')}">
+                                                    ${isFestive ? 'Festivo' : (isMorning ? 'Mattina' : 'Pomeriggio')}
+                                                </span>
+                                            </div>
+                                            <div class="text-xs text-slate-500 mt-1 flex flex-col gap-1">
+                                                <div class="flex items-center gap-1">
+                                                    <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                                                    <span>${hours} ore</span>
+                                                </div>
+                                                <div class="font-semibold text-brand-700">
+                                                    +€${(earned * 0.9).toFixed(2)} netto <span class="text-slate-400 font-normal">(€${earned} lordo)</span>
+                                                </div>
+                                            </div>
+                                            ${turn.colleagues ? `<div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5 text-slate-300"></i><span>Con: ${turn.colleagues}</span></div>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <button onclick="editTurn('${turn.id}')" class="p-2 text-slate-400 hover:text-brand-600 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                        <button onclick="deleteTurn('${turn.id}')" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                    </div>
+                                </div>
+                            </div>`;
+                        });
+
+                        const [year, month] = monthKey.split('-');
+                        const tempDate = new Date(year, month - 1, 1);
+                        const label = tempDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                        const capitalizedLabel = label.charAt(0).toUpperCase() + label.slice(1);
+
+                        const isOpen = openMonths[monthKey] !== false; // aperto di default
+
+                        html += `
+                        <details ontoggle="toggleMonth('${monthKey}', this.open)" ${isOpen ? 'open' : ''} class="group bg-slate-100/30 rounded-2xl border border-slate-200/80 overflow-hidden transition-all duration-300">
+                            <summary class="flex justify-between items-center p-4 font-bold text-slate-800 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden bg-white hover:bg-slate-50 border-b border-transparent group-open:border-slate-200/80 transition-all duration-200">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-brand-50 text-brand-600 p-2 rounded-xl group-hover:scale-105 transition-transform duration-200">
+                                        <i data-lucide="folder" class="w-5 h-5 group-open:hidden"></i>
+                                        <i data-lucide="folder-open" class="w-5 h-5 hidden group-open:block"></i>
+                                    </div>
+                                    <span class="text-sm font-semibold">${capitalizedLabel}</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <div class="flex flex-col items-end">
+                                        <span class="text-sm font-bold text-emerald-600">€ ${(monthTotal * 0.9).toLocaleString('it-IT', { minimumFractionDigits: 2 })} netto</span>
+                                        <span class="text-[10px] text-slate-400 font-normal">€ ${monthTotal.toLocaleString('it-IT', { minimumFractionDigits: 2 })} lordo</span>
+                                    </div>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 group-open:rotate-180 transition-transform"></i>
+                                </div>
+                            </summary>
+                            <div class="p-4 space-y-3 bg-slate-50/50">
+                                <div class="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                                    <span class="text-xs font-semibold text-slate-500">Stipendio ricevuto (€):</span>
+                                    <input type="number" step="0.01" value="${getActualSalary(monthKey)}" onchange="saveActualSalary('${monthKey}', this.value)" placeholder="0.00" class="w-24 text-right bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                                </div>
+                                ${monthHtml}
+                            </div>
+                        </details>`;
+                    });
+                    html += '</div>';
+                } else {
+                    filteredTurns.forEach(turn => {
+                        const d = new Date(turn.date);
+                        const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' }).toUpperCase();
+                        const dayNum = d.getDate();
+                        const monthName = d.toLocaleDateString('it-IT', { month: 'short' }).toUpperCase();
+                        
+                        const { hours, earned, isFestive } = calculateEarnings(turn.start, turn.end, turn.date);
+                        totalSalary += parseFloat(earned); count++;
+                        
+                        const isMorning = parseInt(turn.start.split(':')[0], 10) < 13;
+                        const shiftColorClass = isFestive ? 'border-l-4 border-l-rose-500 bg-rose-50/50' : (isMorning ? 'border-l-4 border-l-amber-500 bg-amber-50/30' : 'border-l-4 border-l-indigo-500 bg-indigo-50/30');
+
+                        html += `
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 transition duration-200 ${shiftColorClass}">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-slate-100 rounded-xl p-2.5 text-center min-w-[52px]">
+                                        <span class="block text-[10px] text-slate-400 font-bold">${weekday}</span>
+                                        <span class="block text-lg font-extrabold text-slate-800 leading-none">${dayNum}</span>
+                                        <span class="block text-[9px] text-brand-600 font-bold mt-0.5">${monthName}</span>
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm font-bold text-slate-800">${turn.start} - ${turn.end}</span>
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isFestive ? 'bg-rose-100 text-rose-700' : (isMorning ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700')}">
+                                                ${isFestive ? 'Festivo' : (isMorning ? 'Mattina' : 'Pomeriggio')}
+                                            </span>
+                                        </div>
+                                        <div class="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                            <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                                            <span>${hours} ore • <strong>Est. €${earned}</strong></span>
+                                        </div>
+                                        ${turn.colleagues ? `<div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5 text-slate-300"></i><span>Con: ${turn.colleagues}</span></div>` : ''}
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="editTurn('${turn.id}')" class="p-2 text-slate-400 hover:text-brand-600 rounded-lg"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                                    <button onclick="deleteTurn('${turn.id}')" class="p-2 text-slate-400 hover:text-rose-600 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+                }
+                
+                container.innerHTML = html;
+                updateSalaryWidget(widgetSalary, widgetCount, completedSalary, completedCount, monthLabel);
+                lucide.createIcons();
+            });
+        }
+
+        function updateSalaryWidget(totalSalary, count, completedSalary, completedCount, monthLabel) {
+            if (activeTab === 'dashboard') {
+                document.getElementById('salary-title').innerText = `Stipendio ${monthLabel || 'Mese Corrente'}`;
+                document.getElementById('salary-details').innerText = `(${count} turni totali)`;
+
+                const progressContainer = document.getElementById('salary-progress-container');
+                if (count > 0) {
+                    progressContainer.classList.remove('hidden');
+                    const percent = Math.round((completedCount / count) * 100) || 0;
+                    document.getElementById('salary-progress-text').innerText = `${completedCount} su ${count} turni fatti`;
+                    document.getElementById('salary-progress-percent').innerText = `${percent}% dei turni completati`;
+                    document.getElementById('salary-progress-bar').style.width = `${percent}%`;
+                } else {
+                    progressContainer.classList.add('hidden');
+                }
+            } else {
+                document.getElementById('salary-title').innerText = "Guadagno Storico";
+                document.getElementById('salary-details').innerText = `(${count} turni archiviati)`;
+                document.getElementById('salary-progress-container').classList.add('hidden');
+            }
+            document.getElementById('salary-estimation-net').innerHTML = `€ ${(totalSalary * 0.9).toLocaleString('it-IT', { minimumFractionDigits: 2 })} <span class="text-xs font-normal text-slate-400">netto</span>`;
+            document.getElementById('salary-estimation-gross').innerText = `€ ${totalSalary.toLocaleString('it-IT', { minimumFractionDigits: 2 })} lordo`;
+        }
+
+        function copiaTurniMese() {
+            getTurns(function(allTurns) {
+                const filter = document.getElementById('month-filter').value;
+                const now = new Date();
+                
+                // Filter logic
+                let filteredTurns = allTurns;
+                if (activeTab === 'dashboard') {
+                    filteredTurns = filteredTurns.filter(t => getTurnEndDateTime(t) > now);
+                } else if (activeTab === 'storico') {
+                    filteredTurns = filteredTurns.filter(t => getTurnEndDateTime(t) <= now);
+                }
+                if (filter !== 'all') {
+                    filteredTurns = filteredTurns.filter(t => t.date.startsWith(filter));
+                }
+                filteredTurns.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                if (filteredTurns.length === 0) {
+                    alert("Nessun turno da copiare.");
+                    return;
+                }
+
+                // Format logic
+                let formattedText = "";
+                filteredTurns.forEach((t, index) => {
+                    const d = new Date(t.date);
+                    const weekday = d.toLocaleDateString('it-IT', { weekday: 'short' });
+                    const day = String(d.getDate()).padStart(2, '0');
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    
+                    const hourStart = parseInt(t.start.split(':')[0], 10);
+                    const type = (hourStart >= 6 && hourStart < 13) ? "morning" : "afternoon"; 
+                    
+                    formattedText += `${index + 1}) ${weekday} ${day}/${month}: ${t.start.split(':')[0]} - ${t.end.split(':')[0]} (${type})\n`;
+                });
+
+                // Clipboard logic
+                navigator.clipboard.writeText(formattedText).then(() => {
+                    const btn = document.getElementById('btn-copia');
+                    const originalText = btn.innerText;
+                    btn.innerText = "Copiato!";
+                    setTimeout(() => btn.innerText = originalText, 2000);
+                });
+            });
+        }
+
+        // ESPORTAZIONE INTELLIGENTE CON ALLARME GIORNO PRIMA ORE 20:00
+        function exportToICS() {
+            getTurns(function(allTurns) {
+                if (allTurns.length === 0) {
+                    alert("Nessun turno inserito da sincronizzare.");
+                    return;
+                }
+                
+                let ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//TurniApp//IT\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\n";
+                
+                allTurns.forEach(turn => {
+                    const dateClean = turn.date.replace(/-/g, '');
+                    const startClean = turn.start.replace(/:/g, '') + '00';
+                    const endClean = turn.end.replace(/:/g, '') + '00';
+                    
+                    const hourStart = parseInt(turn.start.split(':')[0], 10);
+                    const shiftLabel = (hourStart >= 6 && hourStart < 13) ? "Mattina 🌅" : "Pomeriggio 🌇";
+
+                    ics += "BEGIN:VEVENT\r\n";
+                    ics += `UID:${turn.id}@turniapp.local\r\n`;
+                    ics += `DTSTART;TZID=Europe/Rome:${dateClean}T${startClean}\r\n`;
+                    ics += `DTEND;TZID=Europe/Rome:${dateClean}T${endClean}\r\n`;
+                    ics += `SUMMARY:Turno (${shiftLabel})\r\n`;
+                    ics += `DESCRIPTION:Orario: ${turn.start} - ${turn.end}\\nCon: ${turn.colleagues || 'Nessuno'}\\nNote: ${turn.notes || 'Nessuna'}\r\n`;
+                    
+                    // ALLARME CALCOLATO: Il giorno prima (TRIGGER:-P1D) alle ore 20:00 (RELATED=START)
+                    ics += "BEGIN:VALARM\r\n";
+                    ics += "ACTION:DISPLAY\r\n";
+                    ics += "DESCRIPTION:Promemoria Turno di Lavoro Domani!\r\n";
+                    ics += "TRIGGER:-P1DT14H\r\n"; // Allarme 1 giorno prima meno 14 ore rispetto all'inizio del turno per colpire la sera prima
+                    ics += "END:VALARM\r\n";
+                    
+                    ics += "END:VEVENT\r\n";
+                });
+                
+                ics += "END:VCALENDAR";
+                
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.setAttribute('download', 'turni.ics');
+                link.click();
+            });
+        }
+
+        // IMPORTAZIONE TURNI
+        function openImportModal() {
+            document.getElementById('import-year').value = new Date().getFullYear();
+            document.getElementById('import-text').value = '';
+            document.getElementById('import-preview').innerHTML = '';
+            document.getElementById('btn-conferma-import').disabled = true;
+            document.getElementById('btn-conferma-import').classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('import-modal').classList.remove('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+        }
+
+        function parseImportedTurn(line, year) {
+            // Regex per: 1) lun 10/08: 8:00 - 14:30 (tipo)
+            // Supporta orari con o senza minuti (es 8 - 14 o 8:00 - 14:30)
+            const regex = /\d+\)\s+\w+\s+(\d{2})\/(\d{2}):\s+(\d{1,2}(?::\d{2})?)\s+-\s+(\d{1,2}(?::\d{2})?)/;
+            const match = line.match(regex);
+            if (!match) return null;
+
+            const [_, day, month, start, end] = match;
+            const formattedDate = `${year}-${month}-${day}`;
+
+            // Assicura il formato HH:MM
+            const formatTime = (t) => {
+                let [h, m] = t.split(':');
+                h = h.padStart(2, '0');
+                m = (m || '00').padStart(2, '0');
+                return `${h}:${m}`;
+            };
+            
+            return {
+                id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                date: formattedDate,
+                start: formatTime(start),
+                end: formatTime(end)
+            };
+        }
+
+        function updateImportPreview() {
+            const text = document.getElementById('import-text').value;
+            const year = document.getElementById('import-year').value;
+            const previewContainer = document.getElementById('import-preview');
+            const lines = text.split('\n').filter(l => l.trim() !== '');
+            
+            let previewHtml = '<div class="space-y-2 mt-4">';
+            let validTurns = [];
+
+            lines.forEach(line => {
+                const turn = parseImportedTurn(line, year);
+                if (turn) {
+                    validTurns.push(turn);
+                    previewHtml += `<div class="p-2 bg-slate-50 rounded text-xs">✅ ${turn.date}: ${turn.start} - ${turn.end}</div>`;
+                } else {
+                    previewHtml += `<div class="p-2 bg-rose-50 rounded text-xs text-rose-700">❌ Formato non valido: ${line}</div>`;
+                }
+            });
+            previewHtml += '</div>';
+
+            previewContainer.innerHTML = previewHtml;
+            const btnConfirm = document.getElementById('btn-conferma-import');
+            if (validTurns.length > 0) {
+                btnConfirm.disabled = false;
+                btnConfirm.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                btnConfirm.disabled = true;
+                btnConfirm.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        function eseguiImportazione() {
+            const text = document.getElementById('import-text').value;
+            const year = document.getElementById('import-year').value;
+            const lines = text.split('\n').filter(l => l.trim() !== '');
+            const turnsToSave = lines.map(l => parseImportedTurn(l, year)).filter(t => t !== null);
+
+            if (turnsToSave.length === 0) return;
+
+            const transaction = db.transaction(["turns"], "readwrite");
+            const store = transaction.objectStore("turns");
+            
+            turnsToSave.forEach(turn => {
+                store.put(turn);
+            });
+
+            transaction.oncomplete = function() {
+                closeImportModal();
+                populateMonthFilter();
+                renderTurns();
+                document.getElementById('notification-text').innerText = `${turnsToSave.length} turni importati!`;
+                document.getElementById('notification-banner').classList.remove('translate-y-32');
+                setTimeout(() => dismissBanner(), 4000);
+            };
+        }
+    </script>
+</body>
+</html>
